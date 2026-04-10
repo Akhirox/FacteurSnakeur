@@ -10,32 +10,38 @@
 <body>
     <div class="game-container">
         <div class="header">
-            <h1>Facteur Snakeur 📬</h1>
+            <h1 class="main-title">CHBK.FUN</h1>
             <div class="stats-board">
-                <span id="levelDisplay">Niveau: 1</span> | 
-                Score: <span id="score">0</span> / <span id="targetScore">1000</span>
+                <span class="label">Niveau:</span> <span id="levelDisplay" class="value">1</span> | 
+                <span class="label">Score:</span> <span id="score" class="value">0</span> / <span id="targetScore" class="value">1000</span>
             </div>
         </div>
         
-        <canvas id="gameCanvas" width="700" height="700"></canvas>
-        
-        <div id="mainMenu" class="overlay">
-            <h2>Choisis ta tournée !</h2>
-            <div id="levelGrid" class="level-grid"></div>
-        </div>
+        <div class="game-area">
+            <canvas id="gameCanvas" width="700" height="700"></canvas>
+            
+            <div id="mainMenu" class="overlay">
+                <h2>Choisis ta tournée !</h2>
+                <div id="levelGrid" class="level-grid"></div>
+            </div>
 
-        <div id="gameOverScreen" class="hidden overlay">
-            <h2>Aïe ! Tournée ratée !</h2>
-            <p>Score final: <span id="finalScore">0</span></p>
-            <button onclick="showMainMenu()">Retour au Menu</button>
-            <button onclick="startGame(currentLevel)">Réessayer</button>
-        </div>
+            <div id="gameOverScreen" class="hidden overlay">
+                <h2>Aïe ! Tournée ratée !</h2>
+                <p>Score final: <span id="finalScore">0</span></p>
+                <div class="btn-group">
+                    <button onclick="showMainMenu()">Menu Principal</button>
+                    <button onclick="startGame(currentLevel)">Réessayer</button>
+                </div>
+            </div>
 
-        <div id="levelCompleteScreen" class="hidden overlay">
-            <h2>Bravo Niels !</h2>
-            <p>Tournée terminée avec succès !</p>
-            <button onclick="showMainMenu()">Menu</button>
-            <button id="nextLevelBtn" onclick="startGame(currentLevel + 1)">Niveau Suivant</button>
+            <div id="levelCompleteScreen" class="hidden overlay">
+                <h2>Bravo Niels !</h2>
+                <p>Tournée terminée avec succès !</p>
+                <div class="btn-group">
+                    <button onclick="showMainMenu()">Menu</button>
+                    <button id="nextLevelBtn" onclick="startGame(currentLevel + 1)">Niveau Suivant</button>
+                </div>
+            </div>
         </div>
     </div>
 

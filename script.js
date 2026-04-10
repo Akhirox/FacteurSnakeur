@@ -20,7 +20,8 @@ let obstacles = []; // Les chiens !
 let score = 0;
 let currentLevel = 1;
 let targetScore = 1000;
-let maxLevelUnlocked = localStorage.getItem('facteurSnakeurLevel') || 1;
+// Remplace l'ancienne déclaration de maxLevelUnlocked (vers la ligne 18)
+let maxLevelUnlocked = 1;
 
 let isPlaying = false;
 let animationId;
@@ -47,18 +48,36 @@ const assets = {
     recommande: [loadImage('assets/recommande.jpg')]
 };
 
+// --- FONCTION DE SÉCURITÉ POUR LA SAUVEGARDE ---
+function getSavedLevel() {
+    try {
+        let saved = localStorage.getItem('facteurSnakeurLevel');
+        let level = parseInt(saved);
+        // Si c'est un nombre valide on le retourne, sinon on force le Niveau 1
+        return (isNaN(level) || level < 1) ? 1 : level;
+    } catch (e) {
+        console.warn("Lecture de sauvegarde impossible, on débloque le niveau 1 :", e);
+        return 1; 
+    }
+}
+
 // --- MENU & NIVEAUX ---
 function initMenu() {
-    maxLevelUnlocked = parseInt(localStorage.getItem('facteurSnakeurLevel')) || 1;
+    maxLevelUnlocked = getSavedLevel(); // Utilise la fonction sécurisée
     const grid = document.getElementById('levelGrid');
+    
+    if (!grid) return; // Sécurité supplémentaire
+    
     grid.innerHTML = '';
     
     for (let i = 1; i <= MAX_LEVELS; i++) {
         const btn = document.createElement('button');
         btn.innerText = i;
         btn.classList.add('level-btn');
+        
         if (i > maxLevelUnlocked) {
             btn.classList.add('locked');
+            btn.disabled = true; // Empêche le clic physiquement
         } else {
             btn.onclick = () => startGame(i);
         }
@@ -208,7 +227,8 @@ function draw() {
         ctx.lineWidth = BASE_SIZE * 0.8; 
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.strokeStyle = '#ffcc00';
+        /* --- NOUVELLE COULEUR DU CORPS: DORÉ CHBK.FUN --- */
+        ctx.strokeStyle = '#f8db02'; 
 
         ctx.moveTo(snakePath[0].x, snakePath[0].y);
         for (let i = 1; i < snakePath.length; i++) {
