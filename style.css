@@ -1,0 +1,98 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #f0f8ff; /* Bleu très clair */
+    font-family: 'Fredoka One', cursive, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    color: #1a2530;
+}
+
+.game-container {
+    position: relative;
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+h1 {
+    font-size: 28px;
+    color: #004b9b; /* Bleu Poste */
+}
+
+.score-board {
+    font-size: 24px;
+    background: #ffcc00; /* Jaune Poste */
+    padding: 5px 15px;
+    border-radius: 10px;
+    border: 3px solid #1a2530;
+}
+
+canvas {
+    background-color: #e6f3ff; /* Sans grille, juste un fond doux */
+    border: 4px solid #1a2530;
+    border-radius: 15px;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+}
+
+.overlay {
+    position: absolute;
+    top: 80px; /* Aligné sur le canvas */
+    left: 20px;
+    width: 640px;
+    height: 640px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.overlay h2 {
+    font-size: 40px;
+    color: #ff3333;
+    margin-bottom: 10px;
+}
+
+.overlay p {
+    font-size: 24px;
+    margin-bottom: 30px;
+}
+
+button {
+    font-family: 'Fredoka One', cursive;
+    font-size: 24px;
+    background-color: #ffcc00;
+    color: #1a2530;
+    border: 4px solid #1a2530;
+    padding: 10px 30px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: 0 6px 0 #1a2530;
+}
+
+button:active {
+    transform: translateY(6px);
+    box-shadow: 0 0 0 #1a2530;
+}
