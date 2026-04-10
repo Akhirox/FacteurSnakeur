@@ -15,7 +15,7 @@ let velocity = { x: 1, y: 0 };
 let currentDir = 'RIGHT';
 
 let food = null;
-let speedBonusItem = null; // Le bonus sur la carte
+let speedBonusItem = null;
 let obstacles = [];
 let score = 0;
 let currentLevel = 1;
@@ -26,9 +26,8 @@ let isPlaying = false;
 let animationId;
 let eatTimer = 0;
 
-// Variables pour le Bonus
 let currentSpeed = BASE_SPEED;
-let speedBoostTimer = 0; // Compteur de frames pour le boost
+let speedBoostTimer = 0;
 
 // --- CHARGEMENT DES ASSETS ---
 function loadImage(src) {
@@ -43,10 +42,92 @@ const assets = {
     lettres: [loadImage('assets/lettre_1.png'), loadImage('assets/lettre_2.png'), loadImage('assets/lettre_3.png'), loadImage('assets/lettre_4.png')],
     colis: [loadImage('assets/colis_1.png'), loadImage('assets/colis_2.png'), loadImage('assets/colis_3.png')],
     recommande: [loadImage('assets/recommande.jpg')],
-    // Nouveaux assets obstacles et bonus
     obstacles: [loadImage('assets/banane.png'), loadImage('assets/caca.png')],
     bonusVitesse: loadImage('assets/stabi_bonus.png')
 };
+
+// --- MOTEUR PHYSIQUE ÉCRAN TITRE ---
+const titleCanvas = document.getElementById('titleCanvas');
+const tCtx = titleCanvas.getContext('2d');
+let titleAnimId;
+let bouncers = [];
+let mouse = { x: -1000, y: -1000 };
+
+function initTitlePhysics() {
+    bouncers = [];
+    // Combine lettres et colis pour l'animation
+    const pools = [...assets.lettres, ...assets.colis];
+    
+    // Crée 15 objets rebondissants
+    for(let i=0; i<15; i++) {
+        bouncers.push({
+            x: Math.random() * (titleCanvas.width - 100) + 50,
+            y: Math.random() * (titleCanvas.height - 100) + 50,
+            vx: (Math.random() - 0.5) * 6, // Vitesse X aléatoire
+            vy: (Math.random() - 0.5) * 6, // Vitesse Y aléatoire
+            size: 40 + Math.random() * 30, // Taille aléatoire
+            img: pools[Math.floor(Math.random() * pools.length)],
+            rot: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.1
+        });
+    }
+    
+    if(!titleAnimId) titleLoop();
+}
+
+function titleLoop() {
+    tCtx.clearRect(0, 0, titleCanvas.width, titleCanvas.height);
+    
+    for(let b of bouncers) {
+        b.x += b.vx;
+        b.y += b.vy;
+        b.rot += b.rotSpeed;
+
+        // Rebond sur les murs
+        if(b.x - b.size/2 < 0 || b.x + b.size/2 > titleCanvas.width) b.vx *= -1;
+        if(b.y - b.size/2 < 0 || b.y + b.size/2 > titleCanvas.height) b.vy *= -1;
+
+        // Interaction avec la souris (Répulsion)
+        let dx = b.x - mouse.x;
+        let dy = b.y - mouse.y;
+        let dist = Math.hypot(dx, dy);
+        
+        if(dist < 120) { // Si la souris est proche
+            let force = (120 - dist) / 120; // Plus c'est proche, plus la force est grande
+            b.vx += (dx / dist) * force * 2;
+            b.vy += (dy / dist) * force * 2;
+        }
+
+        // Friction douce pour ne pas qu'ils accélèrent à l'infini avec la souris
+        let speed = Math.hypot(b.vx, b.vy);
+        if(speed > 5) {
+            b.vx *= 0.98;
+            b.vy *= 0.98;
+        }
+
+        // Dessin
+        if(b.img && b.img.complete) {
+            tCtx.save();
+            tCtx.translate(b.x, b.y);
+            tCtx.rotate(b.rot);
+            tCtx.drawImage(b.img, -b.size/2, -b.size/2, b.size, b.size);
+            tCtx.restore();
+        }
+    }
+    titleAnimId = requestAnimationFrame(titleLoop);
+}
+
+// Suivi de la souris sur l'écran titre
+document.getElementById('titleScreen').addEventListener('mousemove', (e) => {
+    const rect = titleCanvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+});
+document.getElementById('titleScreen').addEventListener('mouseleave', () => {
+    mouse.x = -1000;
+    mouse.y = -1000;
+});
+
 
 function getSavedLevel() {
     try {
@@ -59,8 +140,18 @@ function getSavedLevel() {
 }
 
 // --- GESTION DES MENUS ---
+function showTitleScreen() {
+    document.getElementById('mainMenu').classList.add('hidden');
+    document.getElementById('titleScreen').classList.remove('hidden');
+    // On relance la physique de l'écran titre
+    initTitlePhysics(); 
+}
+
 function enterLevelSelect() {
     document.getElementById('titleScreen').classList.add('hidden');
+    // On arrête la physique pour économiser les perfs
+    cancelAnimationFrame(titleAnimId);
+    titleAnimId = null;
     showMainMenu();
 }
 
@@ -68,12 +159,10 @@ function showMainMenu() {
     isPlaying = false;
     cancelAnimationFrame(animationId);
     
-    // Remise à zéro visuelle
     canvas.classList.remove('speed-boost');
     
     document.getElementById('gameOverScreen').classList.add('hidden');
     document.getElementById('levelCompleteScreen').classList.add('hidden');
-    document.getElementById('titleScreen').classList.add('hidden');
     document.getElementById('mainMenu').classList.remove('hidden');
     
     maxLevelUnlocked = getSavedLevel(); 
@@ -160,7 +249,6 @@ function spawnFood() {
     const img = pool[Math.floor(Math.random() * pool.length)];
     food = { x: newX, y: newY, img: img, points: points, growth: growth };
 
-    // 20% de chance de faire apparaître le bonus de vitesse s'il n'y en a pas déjà un
     if (Math.random() < 0.20 && !speedBonusItem) {
         speedBonusItem = {
             x: Math.random() * (canvas.width - BASE_SIZE * 2) + BASE_SIZE,
@@ -173,7 +261,6 @@ function spawnFood() {
 function update() {
     if (!isPlaying) return;
 
-    // Gestion du timer de boost de vitesse (60 frames = environ 1 seconde)
     if (speedBoostTimer > 0) {
         speedBoostTimer--;
         if (speedBoostTimer <= 0) {
@@ -193,7 +280,6 @@ function update() {
     snakePath.unshift({ x: head.x, y: head.y });
     if (snakePath.length > snakeLength) snakePath.pop();
 
-    // Manger la nourriture
     if (Math.hypot(head.x - food.x, head.y - food.y) < BASE_SIZE) {
         score += food.points;
         snakeLength += food.growth;
@@ -204,16 +290,14 @@ function update() {
         spawnFood();
     }
 
-    // Prendre le bonus de vitesse
     if (speedBonusItem && Math.hypot(head.x - speedBonusItem.x, head.y - speedBonusItem.y) < BASE_SIZE) {
         currentSpeed = BASE_SPEED * 1.5;
-        speedBoostTimer = 300; // 5 secondes à 60 FPS
-        speedBonusItem = null; // On le retire de la carte
-        canvas.classList.add('speed-boost'); // Effet visuel
+        speedBoostTimer = 300; 
+        speedBonusItem = null; 
+        canvas.classList.add('speed-boost'); 
         eatTimer = 10;
     }
 
-    // Collisions avec obstacles (Bananes, Cacas)
     for (let obs of obstacles) {
         if (Math.hypot(head.x - obs.x, head.y - obs.y) < BASE_SIZE * 0.7) {
             triggerGameOver();
@@ -221,7 +305,6 @@ function update() {
         }
     }
 
-    // Auto-collision
     for (let i = 25; i < snakePath.length; i++) {
         if (Math.hypot(head.x - snakePath[i].x, head.y - snakePath[i].y) < BASE_SIZE * 0.5) {
             triggerGameOver();
@@ -235,20 +318,17 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Dessin des Obstacles avec les images
     for (let obs of obstacles) {
         if (obs.img && obs.img.complete) {
             ctx.drawImage(obs.img, obs.x - BASE_SIZE/2, obs.y - BASE_SIZE/2, BASE_SIZE, BASE_SIZE);
         }
     }
 
-    // 2. Dessin du corps du serpent
     if (snakePath.length > 1) {
         ctx.beginPath();
         ctx.lineWidth = BASE_SIZE * 0.8; 
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        // Si boost activé, le serpent devient un peu vert/teal pour coller au thème CHBK
         ctx.strokeStyle = speedBoostTimer > 0 ? '#14b8a6' : '#f8db02'; 
 
         ctx.moveTo(snakePath[0].x, snakePath[0].y);
@@ -266,22 +346,25 @@ function draw() {
         ctx.stroke();
     }
 
-    // 3. Dessin du Bonus de vitesse (avec un effet de rotation)
+    // Dessin du Bonus de vitesse (Effet néon + flottement, sans rotation)
     if (speedBonusItem && speedBonusItem.img && speedBonusItem.img.complete) {
         ctx.save();
-        ctx.translate(speedBonusItem.x, speedBonusItem.y);
-        ctx.rotate(Date.now() / 200); // Tourne sur lui-même
-        ctx.drawImage(speedBonusItem.img, -BASE_SIZE/2, -BASE_SIZE/2, BASE_SIZE, BASE_SIZE);
+        // Effet lumineux/Glow
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#14b8a6'; 
+        
+        // Flottement haut/bas
+        const floatY = Math.sin(Date.now() / 150) * 5; 
+        
+        ctx.drawImage(speedBonusItem.img, speedBonusItem.x - BASE_SIZE/2, speedBonusItem.y - BASE_SIZE/2 + floatY, BASE_SIZE, BASE_SIZE);
         ctx.restore();
     }
 
-    // 4. Dessin de la nourriture
     if (food && food.img && food.img.complete) {
         const bounce = Math.sin(Date.now() / 150) * 5;
         ctx.drawImage(food.img, food.x - BASE_SIZE/2, food.y - BASE_SIZE/2 + bounce, BASE_SIZE, BASE_SIZE);
     }
 
-    // 5. Dessin de la tête
     const headImg = (eatTimer > 0) ? assets.headOpen : assets.headClosed;
     if (headImg && headImg.complete) {
         let angle = 0;
@@ -348,4 +431,7 @@ window.addEventListener('keydown', e => {
     }
 });
 
-// Affiche l'écran titre par défaut (géré par l'HTML directement)
+// Lance l'animation de l'écran titre au démarrage de la page
+window.onload = () => {
+    initTitlePhysics();
+};
