@@ -1,17 +1,30 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
+const targetElement = document.getElementById('targetScore');
+const levelDisplay = document.getElementById('levelDisplay');
 
-const gridSize = 32;
-let snake = [];
-let velocity = { x: 0, y: 0 };
-let lastVelocity = { x: 0, y: 0 };
+// Constantes d'échelle et de physique
+const BASE_SIZE = 48; // Les assets sont plus gros
+const SPEED = 4; // Vitesse de déplacement au pixel par frame
+const MAX_LEVELS = 20;
+
+let snakePath = []; // Enregistre l'historique des positions {x, y}
+let snakeLength = 40; // Longueur initiale (en nombre de frames enregistrées)
+let head = { x: 350, y: 350 };
+let velocity = { x: 1, y: 0 };
+let currentDir = 'RIGHT';
+
 let food = null;
+let obstacles = []; // Les chiens !
 let score = 0;
-let gameOver = false;
-let gameLoopId;
-let eatTimer = 0; // Pour garder la bouche ouverte quelques frames
-let speed = 150; // Vitesse de base en ms
+let currentLevel = 1;
+let targetScore = 1000;
+let maxLevelUnlocked = localStorage.getItem('facteurSnakeurLevel') || 1;
+
+let isPlaying = false;
+let animationId;
+let eatTimer = 0;
 
 // --- CHARGEMENT DES ASSETS ---
 function loadImage(src) {
@@ -34,89 +47,145 @@ const assets = {
     recommande: [loadImage('assets/recommande.jpg')]
 };
 
-// --- LOGIQUE DU JEU ---
-function initGame() {
-    snake = [{ x: 10, y: 10 }];
-    velocity = { x: 1, y: 0 }; // Départ vers la droite
-    lastVelocity = { x: 1, y: 0 };
-    score = 0;
-    speed = 140;
-    gameOver = false;
-    scoreElement.innerText = score;
+// --- MENU & NIVEAUX ---
+function initMenu() {
+    maxLevelUnlocked = parseInt(localStorage.getItem('facteurSnakeurLevel')) || 1;
+    const grid = document.getElementById('levelGrid');
+    grid.innerHTML = '';
+    
+    for (let i = 1; i <= MAX_LEVELS; i++) {
+        const btn = document.createElement('button');
+        btn.innerText = i;
+        btn.classList.add('level-btn');
+        if (i > maxLevelUnlocked) {
+            btn.classList.add('locked');
+        } else {
+            btn.onclick = () => startGame(i);
+        }
+        grid.appendChild(btn);
+    }
+}
+
+function showMainMenu() {
+    isPlaying = false;
+    cancelAnimationFrame(animationId);
     document.getElementById('gameOverScreen').classList.add('hidden');
-    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('levelCompleteScreen').classList.add('hidden');
+    document.getElementById('mainMenu').classList.remove('hidden');
+    initMenu();
+}
+
+// --- LOGIQUE DU JEU ---
+function startGame(level) {
+    currentLevel = level;
+    targetScore = 1000 + ((level - 1) * 500); // +500 pts requis par niveau
+    score = 0;
+    snakeLength = 40;
+    head = { x: canvas.width / 2, y: canvas.height / 2 };
+    velocity = { x: 1, y: 0 };
+    currentDir = 'RIGHT';
+    snakePath = [];
+    
+    scoreElement.innerText = score;
+    targetElement.innerText = targetScore;
+    levelDisplay.innerText = `Niveau: ${currentLevel}`;
+    
+    document.getElementById('mainMenu').classList.add('hidden');
+    document.getElementById('gameOverScreen').classList.add('hidden');
+    document.getElementById('levelCompleteScreen').classList.add('hidden');
+    
+    spawnObstacles();
     spawnFood();
+    
+    isPlaying = true;
+    gameLoop();
+}
+
+function spawnObstacles() {
+    obstacles = [];
+    const numObstacles = (currentLevel - 1) * 2; // Ajoute 2 chiens par niveau
+    
+    for (let i = 0; i < numObstacles; i++) {
+        obstacles.push({
+            x: Math.random() * (canvas.width - BASE_SIZE * 2) + BASE_SIZE,
+            y: Math.random() * (canvas.height - BASE_SIZE * 2) + BASE_SIZE
+        });
+    }
 }
 
 function spawnFood() {
-    let newX, newY;
-    let isOnSnake = true;
-    
-    // Trouver une case vide
-    while (isOnSnake) {
-        newX = Math.floor(Math.random() * (canvas.width / gridSize));
-        newY = Math.floor(Math.random() * (canvas.height / gridSize));
-        isOnSnake = snake.some(segment => segment.x === newX && segment.y === newY);
-    }
+    let newX, newY, safe;
+    // S'assure que la nourriture n'apparait pas sur un obstacle
+    do {
+        safe = true;
+        newX = Math.random() * (canvas.width - BASE_SIZE * 2) + BASE_SIZE;
+        newY = Math.random() * (canvas.height - BASE_SIZE * 2) + BASE_SIZE;
+        
+        for (let obs of obstacles) {
+            if (Math.hypot(obs.x - newX, obs.y - newY) < BASE_SIZE * 2) safe = false;
+        }
+    } while (!safe);
 
-    // Calcul des probabilités de loot
     const rand = Math.random();
-    let category, pool, points;
+    let category, pool, points, growth;
 
     if (rand < 0.70) {
-        category = 'lettre'; pool = assets.lettres; points = 10;
+        pool = assets.lettres; points = 50; growth = 10;
     } else if (rand < 0.95) {
-        category = 'colis'; pool = assets.colis; points = 30;
+        pool = assets.colis; points = 150; growth = 20;
     } else {
-        category = 'recommande'; pool = assets.recommande; points = 100;
+        pool = assets.recommande; points = 500; growth = 40;
     }
 
-    // Choisir une image aléatoire dans la catégorie
     const img = pool[Math.floor(Math.random() * pool.length)];
-    
-    food = { x: newX, y: newY, img: img, points: points };
+    food = { x: newX, y: newY, img: img, points: points, growth: growth };
 }
 
 function update() {
-    if (gameOver) return;
+    if (!isPlaying) return;
 
-    // Mise à jour de lastVelocity pour éviter les demi-tours immédiats
-    lastVelocity = { ...velocity };
+    // Déplacement fluide continu
+    head.x += velocity.x * SPEED;
+    head.y += velocity.y * SPEED;
 
-    const head = { x: snake[0].x + velocity.x, y: snake[0].y + velocity.y };
+    // Gestion de la traversée des murs (Wrap)
+    if (head.x < 0) head.x = canvas.width;
+    if (head.x > canvas.width) head.x = 0;
+    if (head.y < 0) head.y = canvas.height;
+    if (head.y > canvas.height) head.y = 0;
 
-    // --- GESTION DES MURS (Traversée) ---
-    const maxCols = canvas.width / gridSize;
-    const maxRows = canvas.height / gridSize;
+    // Enregistrement de la trajectoire
+    snakePath.unshift({ x: head.x, y: head.y });
+    if (snakePath.length > snakeLength) snakePath.pop();
 
-    if (head.x < 0) head.x = maxCols - 1;
-    else if (head.x >= maxCols) head.x = 0;
-    
-    if (head.y < 0) head.y = maxRows - 1;
-    else if (head.y >= maxRows) head.y = 0;
+    // Collisions avec la nourriture (Basé sur la distance / Rayon)
+    if (Math.hypot(head.x - food.x, head.y - food.y) < BASE_SIZE) {
+        score += food.points;
+        snakeLength += food.growth;
+        scoreElement.innerText = score;
+        eatTimer = 10;
+        
+        if (score >= targetScore) {
+            triggerLevelComplete();
+            return;
+        }
+        spawnFood();
+    }
 
-    // --- GESTION DES COLLISIONS (Queue) ---
-    // On ne vérifie pas le dernier segment car il va avancer (sauf si on mange)
-    for (let i = 0; i < snake.length; i++) {
-        if (head.x === snake[i].x && head.y === snake[i].y) {
+    // Collisions avec les obstacles (Chiens)
+    for (let obs of obstacles) {
+        if (Math.hypot(head.x - obs.x, head.y - obs.y) < BASE_SIZE * 0.8) {
             triggerGameOver();
             return;
         }
     }
 
-    snake.unshift(head); // Ajoute la nouvelle tête
-
-    // --- GESTION DE LA NOURRITURE ---
-    if (head.x === food.x && head.y === food.y) {
-        score += food.points;
-        scoreElement.innerText = score;
-        eatTimer = 3; // Laisse la bouche ouverte pendant 3 ticks
-        spawnFood();
-        
-        // Accélérer très légèrement le jeu à chaque repas
-        if (speed > 60) speed -= 1; 
-    } else {
-        snake.pop(); // Enlève la queue si on n'a rien mangé
+    // Collisions avec sa propre queue (On ignore les 20 premières frames pour ne pas mourir en tournant)
+    for (let i = 25; i < snakePath.length; i++) {
+        if (Math.hypot(head.x - snakePath[i].x, head.y - snakePath[i].y) < BASE_SIZE * 0.5) {
+            triggerGameOver();
+            return;
+        }
     }
 
     if (eatTimer > 0) eatTimer--;
@@ -125,60 +194,58 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Dessin du corps du serpent (Fluide et arrondi)
-    if (snake.length > 1) {
+    // 1. Dessin des Obstacles (Chiens)
+    ctx.font = `${BASE_SIZE}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let obs of obstacles) {
+        ctx.fillText("🐕", obs.x, obs.y);
+    }
+
+    // 2. Dessin du corps du serpent (Ligne continue très lisse)
+    if (snakePath.length > 1) {
         ctx.beginPath();
-        ctx.lineWidth = gridSize * 0.7; // Épaisseur du corps
+        ctx.lineWidth = BASE_SIZE * 0.8; 
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.strokeStyle = '#ffcc00'; // Jaune Poste cartoon
+        ctx.strokeStyle = '#ffcc00';
 
-        for (let i = 0; i < snake.length; i++) {
-            let px = snake[i].x * gridSize + gridSize / 2;
-            let py = snake[i].y * gridSize + gridSize / 2;
-
-            if (i === 0) {
-                ctx.moveTo(px, py);
+        ctx.moveTo(snakePath[0].x, snakePath[0].y);
+        for (let i = 1; i < snakePath.length; i++) {
+            let pt = snakePath[i];
+            let prevPt = snakePath[i - 1];
+            // Si le point saute d'un bord à l'autre, on casse la ligne
+            if (Math.hypot(pt.x - prevPt.x, pt.y - prevPt.y) > BASE_SIZE * 2) {
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(pt.x, pt.y);
             } else {
-                let prev = snake[i - 1];
-                // Si on a traversé un mur, on casse la ligne pour ne pas dessiner un trait en travers de l'écran
-                if (Math.abs(snake[i].x - prev.x) > 1 || Math.abs(snake[i].y - prev.y) > 1) {
-                    ctx.stroke(); 
-                    ctx.beginPath(); 
-                    ctx.moveTo(px, py);
-                } else {
-                    ctx.lineTo(px, py);
-                }
+                ctx.lineTo(pt.x, pt.y);
             }
         }
         ctx.stroke();
     }
 
-    // 2. Dessin de la nourriture
+    // 3. Dessin de la nourriture
     if (food && food.img && food.img.complete) {
-        // Animation légère de rebond (Optionnel mais cartoon)
-        const bounce = Math.sin(Date.now() / 200) * 3;
-        ctx.drawImage(food.img, food.x * gridSize + 2, food.y * gridSize + 2 + bounce, gridSize - 4, gridSize - 4);
+        const bounce = Math.sin(Date.now() / 150) * 5;
+        ctx.drawImage(food.img, food.x - BASE_SIZE/2, food.y - BASE_SIZE/2 + bounce, BASE_SIZE, BASE_SIZE);
     }
 
-    // 3. Dessin de la tête de Niels
-    const headX = snake[0].x * gridSize + gridSize / 2;
-    const headY = snake[0].y * gridSize + gridSize / 2;
+    // 4. Dessin de la tête de Niels (Scale up)
     const headImg = (eatTimer > 0) ? assets.headOpen : assets.headClosed;
-
     if (headImg && headImg.complete) {
         let angle = 0;
-        if (lastVelocity.x === 1) angle = 0;
-        else if (lastVelocity.x === -1) angle = Math.PI; // 180 deg
-        else if (lastVelocity.y === 1) angle = Math.PI / 2; // 90 deg
-        else if (lastVelocity.y === -1) angle = -Math.PI / 2; // -90 deg
+        if (currentDir === 'RIGHT') angle = 0;
+        if (currentDir === 'LEFT') angle = Math.PI;
+        if (currentDir === 'DOWN') angle = Math.PI / 2;
+        if (currentDir === 'UP') angle = -Math.PI / 2;
 
         ctx.save();
-        ctx.translate(headX, headY);
+        ctx.translate(head.x, head.y);
         ctx.rotate(angle);
-        // On dessine la tête un peu plus grosse que le corps (Effet Bobblehead)
-        const headSize = gridSize * 1.4; 
-        ctx.drawImage(headImg, -headSize / 2, -headSize / 2, headSize, headSize);
+        const drawSize = BASE_SIZE * 1.5; // Tête encore plus grosse (effet Cartoon)
+        ctx.drawImage(headImg, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
         ctx.restore();
     }
 }
@@ -186,46 +253,57 @@ function draw() {
 function gameLoop() {
     update();
     draw();
-    if (!gameOver) {
-        setTimeout(gameLoop, speed);
+    if (isPlaying) {
+        animationId = requestAnimationFrame(gameLoop);
     }
 }
 
 function triggerGameOver() {
-    gameOver = true;
+    isPlaying = false;
     document.getElementById('finalScore').innerText = score;
     document.getElementById('gameOverScreen').classList.remove('hidden');
 }
 
-function startGame() {
-    initGame();
-    gameLoop();
-}
-
-function resetGame() {
-    initGame();
-    gameLoop();
+function triggerLevelComplete() {
+    isPlaying = false;
+    if (currentLevel >= maxLevelUnlocked && currentLevel < MAX_LEVELS) {
+        maxLevelUnlocked = currentLevel + 1;
+        localStorage.setItem('facteurSnakeurLevel', maxLevelUnlocked);
+    }
+    
+    // Gère la fin du jeu si on bat le niveau 20
+    if(currentLevel === MAX_LEVELS) {
+        document.getElementById('nextLevelBtn').style.display = 'none';
+        document.querySelector('#levelCompleteScreen p').innerText = "INCROYABLE ! Tu as fini le jeu entier !";
+    } else {
+        document.getElementById('nextLevelBtn').style.display = 'inline-block';
+    }
+    
+    document.getElementById('levelCompleteScreen').classList.remove('hidden');
 }
 
 // --- CONTRÔLES ---
 window.addEventListener('keydown', e => {
-    // Empêcher le scrolling de la page avec les flèches
     if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
         e.preventDefault();
     }
 
+    // Empêche les demi-tours immédiats
     switch (e.key) {
         case 'ArrowUp':
-            if (lastVelocity.y !== 1) velocity = { x: 0, y: -1 };
+            if (currentDir !== 'DOWN') { velocity = { x: 0, y: -1 }; currentDir = 'UP'; }
             break;
         case 'ArrowDown':
-            if (lastVelocity.y !== -1) velocity = { x: 0, y: 1 };
+            if (currentDir !== 'UP') { velocity = { x: 0, y: 1 }; currentDir = 'DOWN'; }
             break;
         case 'ArrowLeft':
-            if (lastVelocity.x !== 1) velocity = { x: -1, y: 0 };
+            if (currentDir !== 'RIGHT') { velocity = { x: -1, y: 0 }; currentDir = 'LEFT'; }
             break;
         case 'ArrowRight':
-            if (lastVelocity.x !== -1) velocity = { x: 1, y: 0 };
+            if (currentDir !== 'LEFT') { velocity = { x: 1, y: 0 }; currentDir = 'RIGHT'; }
             break;
     }
 });
+
+// Lance le menu au démarrage
+initMenu();

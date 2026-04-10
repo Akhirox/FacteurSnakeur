@@ -11,23 +11,31 @@
     <div class="game-container">
         <div class="header">
             <h1>Facteur Snakeur 📬</h1>
-            <div class="score-board">
-                Score: <span id="score">0</span>
+            <div class="stats-board">
+                <span id="levelDisplay">Niveau: 1</span> | 
+                Score: <span id="score">0</span> / <span id="targetScore">1000</span>
             </div>
         </div>
         
-        <canvas id="gameCanvas" width="640" height="640"></canvas>
+        <canvas id="gameCanvas" width="700" height="700"></canvas>
         
-        <div id="gameOverScreen" class="hidden overlay">
-            <h2>Oh non ! Tournée terminée !</h2>
-            <p>Score final: <span id="finalScore">0</span></p>
-            <button onclick="resetGame()">Repartir en tournée</button>
+        <div id="mainMenu" class="overlay">
+            <h2>Choisis ta tournée !</h2>
+            <div id="levelGrid" class="level-grid"></div>
         </div>
 
-        <div id="startScreen" class="overlay">
-            <h2>Prêt pour la tournée, Niels ?</h2>
-            <p>Utilise les flèches directionnelles pour distribuer le courrier !</p>
-            <button onclick="startGame()">C'est parti !</button>
+        <div id="gameOverScreen" class="hidden overlay">
+            <h2>Aïe ! Tournée ratée !</h2>
+            <p>Score final: <span id="finalScore">0</span></p>
+            <button onclick="showMainMenu()">Retour au Menu</button>
+            <button onclick="startGame(currentLevel)">Réessayer</button>
+        </div>
+
+        <div id="levelCompleteScreen" class="hidden overlay">
+            <h2>Bravo Niels !</h2>
+            <p>Tournée terminée avec succès !</p>
+            <button onclick="showMainMenu()">Menu</button>
+            <button id="nextLevelBtn" onclick="startGame(currentLevel + 1)">Niveau Suivant</button>
         </div>
     </div>
 
