@@ -5,21 +5,20 @@
 }
 
 body {
-    background-color: #f0f8ff;
+    background-color: #0e1628; 
     font-family: 'Fredoka One', cursive, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    color: #1a2530;
+    color: #f3f4f6;
 }
 
 .game-container {
-    position: relative;
-    background: #ffffff;
+    background: #1a2238;
     padding: 20px;
     border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 .header {
@@ -29,33 +28,50 @@ body {
     margin-bottom: 15px;
 }
 
-h1 {
-    font-size: 28px;
-    color: #004b9b;
+.main-title {
+    font-size: 36px;
+    color: #f8db02; 
+    text-shadow: 0 0 10px rgba(248, 219, 2, 0.7);
 }
 
 .stats-board {
     font-size: 20px;
-    background: #ffcc00;
+    background: #1a2238;
     padding: 8px 15px;
     border-radius: 10px;
-    border: 3px solid #1a2530;
+    border: 3px solid #14b8a6; 
+}
+
+.stats-board .label { color: #14b8a6; }
+.stats-board .value { color: #f8db02; }
+
+.game-area {
+    position: relative;
+    width: 700px;
+    height: 700px;
 }
 
 canvas {
-    background-color: #e6f3ff;
-    border: 4px solid #1a2530;
+    background-color: #0e1628;
+    border: 4px solid #111;
     border-radius: 15px;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+    transition: box-shadow 0.3s ease;
+}
+
+/* Effet visuel quand le bonus de vitesse est actif */
+canvas.speed-boost {
+    box-shadow: inset 0 0 30px rgba(20, 184, 166, 0.6);
+    border-color: #14b8a6;
 }
 
 .overlay {
     position: absolute;
-    top: 80px;
-    left: 20px;
-    width: 700px;
-    height: 700px;
-    background: rgba(255, 255, 255, 0.95);
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(26, 34, 56, 0.95); 
     border-radius: 15px;
     display: flex;
     flex-direction: column;
@@ -65,35 +81,65 @@ canvas {
     z-index: 10;
 }
 
-.overlay.hidden {
-    display: none;
+.overlay.hidden { display: none; }
+
+/* ANIMATION ÉCRAN TITRE */
+.animated-game-title {
+    font-size: 65px;
+    color: #f8db02;
+    margin-bottom: 10px;
+    animation: float-pulse 3s ease-in-out infinite;
+}
+
+.subtitle {
+    font-size: 24px;
+    color: #14b8a6;
+    margin-bottom: 40px;
+}
+
+@keyframes float-pulse {
+    0%, 100% { 
+        transform: translateY(0) scale(1) rotate(-2deg); 
+        text-shadow: 0 0 15px rgba(248, 219, 2, 0.5);
+    }
+    50% { 
+        transform: translateY(-15px) scale(1.05) rotate(2deg); 
+        text-shadow: 0 0 30px rgba(248, 219, 2, 0.9), 0 0 10px #fff;
+    }
 }
 
 .overlay h2 {
     font-size: 40px;
     margin-bottom: 20px;
+    color: #f3f4f6;
 }
 
-#gameOverScreen h2 { color: #ff3333; }
-#levelCompleteScreen h2 { color: #2ecc71; }
+#gameOverScreen h2 { color: #ef4444; }
+#levelCompleteScreen h2 { color: #14b8a6; }
+
+.btn-group {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
 
 button {
     font-family: 'Fredoka One', cursive;
-    font-size: 20px;
-    background-color: #ffcc00;
-    color: #1a2530;
-    border: 4px solid #1a2530;
-    padding: 10px 25px;
+    font-size: 24px;
+    background-color: #111827; 
+    color: #f3f4f6;
+    border: 4px solid #111;
+    padding: 15px 35px;
     border-radius: 50px;
     cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.1s;
-    box-shadow: 0 6px 0 #1a2530;
-    margin: 10px;
+    transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s;
+    box-shadow: 0 6px 0 #111;
 }
 
+button:hover { background-color: #1f2937; }
 button:active {
     transform: translateY(6px);
-    box-shadow: 0 0 0 #1a2530;
+    box-shadow: 0 0 0 #111;
 }
 
 /* Grille des niveaux */
@@ -108,17 +154,20 @@ button:active {
     width: 60px;
     height: 60px;
     font-size: 24px;
-    border-radius: 15px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     padding: 0;
 }
 
+.level-btn:not(.locked) {
+    background-color: #f8db02;
+    color: #1a2530;
+    border: 4px solid #111;
+    box-shadow: 0 6px 0 #111;
+}
+
 .level-btn.locked {
-    background-color: #ccc;
-    color: #888;
-    box-shadow: 0 6px 0 #999;
+    background-color: #374151; 
+    color: #9ca3af;
+    box-shadow: 0 6px 0 #111;
     cursor: not-allowed;
-    border-color: #999;
+    border-color: #222;
 }

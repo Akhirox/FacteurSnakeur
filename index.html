@@ -20,7 +20,13 @@
         <div class="game-area">
             <canvas id="gameCanvas" width="700" height="700"></canvas>
             
-            <div id="mainMenu" class="overlay">
+            <div id="titleScreen" class="overlay">
+                <h1 class="animated-game-title">Facteur Snakeur</h1>
+                <p class="subtitle">La tournée la plus folle !</p>
+                <button onclick="enterLevelSelect()">Commencer</button>
+            </div>
+
+            <div id="mainMenu" class="hidden overlay">
                 <h2>Choisis ta tournée !</h2>
                 <div id="levelGrid" class="level-grid"></div>
             </div>
